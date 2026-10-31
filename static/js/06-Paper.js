@@ -1,0 +1,8 @@
+function Paper({p,back,saved,toggle}){const[t,setT]=S('Overview');
+return h('div',{style:{maxWidth:980}},h('button',{className:'mu row',onClick:back},I('back',14),'Back to results'),h('h1',{style:{marginTop:12}},p.t),h('p',{className:'mu'},p.a),h('div',{className:'row',style:{marginTop:8}},h('span',{className:'mu'},p.y),h('span',{className:'mu'},p.v),h('span',{className:'chip'},p.tag)),
+h('div',{className:'tabs'},['Overview','Methodology','Results','Citations'].map(x=>h('button',{key:x,className:t===x?'on':'',onClick:()=>setT(x)},x))),
+h('div',{className:'two'},h('div',null,t==='Overview'&&h('div',null,h('h2',null,'Abstract'),h('p',{style:{lineHeight:1.7}},p.abs),h('h2',{style:{marginTop:22}},'Key Findings'),h('ul',{style:{paddingLeft:20,display:'grid',gap:8}},p.kf.map(x=>h('li',{key:x},x)))),
+t==='Methodology'&&h('p',{style:{lineHeight:1.7}},p.m),t==='Results'&&h('p',{style:{lineHeight:1.7}},p.r),
+t==='Citations'&&(p.cit.length?p.cit.map(c=>h('div',{className:'li',key:c},c)):h('p',{className:'mu'},'No reference data available for this paper.'))),
+h('aside',{className:'card',style:{alignSelf:'start'}},h('h2',null,'Paper Details'),[['DOI',p.doi],['Venue',p.v],['Year',p.y],['Cited by',p.c.toLocaleString()]].map(([a,b])=>h('div',{key:a,style:{marginBottom:10}},h('div',{className:'mu'},a),h('div',{style:{wordBreak:'break-word'}},b))),
+h('div',{style:{display:'grid',gap:8,marginTop:14}},h('button',{className:'btn o',onClick:()=>toggle(p.id)},saved.includes(p.id)?'Saved ✓':'Save Paper'),h('a',{className:'btn',href:p.url,target:'_blank',rel:'noopener',style:{textDecoration:'none'}},'View Full Paper',I('ext',14))))))}

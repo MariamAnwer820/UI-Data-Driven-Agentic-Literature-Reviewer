@@ -1,0 +1,4 @@
+function Sessions({go,start,hist}){const[f,setF]=S('');const L=hist.filter(s=>(s.t+s.q+s.d).toLowerCase().includes(f.toLowerCase()));
+return h('div',{style:{maxWidth:900}},h('h1',null,'Recent Sessions'),h('input',{className:'in',style:{margin:'10px 0 18px'},placeholder:'Search by topic, keyword or date',value:f,onChange:e=>setF(e.target.value),'aria-label':'Search sessions'}),
+L.map(s=>h('div',{className:'li',key:s.t},h('div',null,h('div',{className:'t'},s.t),h('div',{className:'mu',style:{overflow:'hidden',textOverflow:'ellipsis',whiteSpace:'nowrap'}},s.q),h('div',{className:'mu',style:{fontSize:12,marginTop:4}},s.d+' · '+s.n+' papers')),h('button',{className:'btn',onClick:()=>start(s.q.replace('…',''))},'View'),I('chev'))),
+!L.length&&h('p',{className:'mu'},'No sessions match. Try a different keyword or start a new research.'))}

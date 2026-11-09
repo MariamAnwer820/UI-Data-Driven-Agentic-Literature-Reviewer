@@ -19,12 +19,12 @@ function Research({run}) {
         }
         if(!run.id) {
           const body={question:run.question,constraints:run.constraints?[run.constraints]:[],task:run.task,
-            provider:run.settings.provider,model:run.settings.model};
+            provider:run.settings.provider,model:run.settings.model,client_request_id:run.requestId};
           if(run.datasetId) { body.dataset_id=run.datasetId; body.target_column=run.target; }
           const job=await ReviewAPI.start(body,run.token,signal); run.id=job.review_id; run.status=job.status;
         }
         if(run.status==='completed' && !run.report) run.report=await ReviewAPI.report(run.id,run.token,signal);
-        if(!['awaiting_review','paused','failed','cancelled','completed'].includes(run.status)) {
+        if(!run.events.length || !['awaiting_review','paused','failed','cancelled','completed'].includes(run.status)) {
           await ReviewAPI.events(run.id,run.token,run.lastId,event=>{
             run.lastId=event.id; run.events.push(event);
             if(event.status && event.type!=='progress') run.status=event.status;

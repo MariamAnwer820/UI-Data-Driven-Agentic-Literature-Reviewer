@@ -9,7 +9,8 @@ function App() {
   },[settings.theme,settings.font]);
   function start(question,constraints,task,target) {
     if(run.current && run.current.token) ReviewAPI.close(run.current.token).catch(()=>{});
-    run.current={question,constraints,task,target,file,settings:{...settings},events:[],lastId:0,status:'starting'};
+    run.current={question,constraints,task,target,file,settings:{...settings},events:[],lastId:0,
+      requestId:crypto.randomUUID(),status:'starting'};
     setRunNumber(n=>n+1); setView('research');
   }
   return h('div',{className:'shell'},h(Sidebar,{v:view,go:setView,hasReview:!!run.current}),

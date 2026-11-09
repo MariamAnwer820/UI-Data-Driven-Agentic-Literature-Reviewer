@@ -24,9 +24,9 @@ Backend sessions expire after one hour; refreshing also loses the current review
 
 The backend owns paper limits and relevance screening. The UI does not fabricate
 relevance percentages. It does not save provider keys or reports in browser
-storage. Avoid closing or refreshing the page during a review. A failed request
-while initially creating a review can leave an active job whose ID was not
-received; let that session expire before starting over if this occurs.
+storage. Avoid closing or refreshing the page during a review. If the initial
+review response is interrupted, reconnecting retries the same request ID within
+the current session so the backend returns the existing review.
 
 The UI uses `http://127.0.0.1:8000` and the backend allows only local browser
 origins. A hosted UI on Vercel cannot use this local setup as a public service.
@@ -35,5 +35,7 @@ access controls, and a production session and job-storage design.
 
 `tests/api-client.html` tests the API client in a browser with mocked responses.
 `tests/ui-flow.mock.js` exercises the screens with synthetic responses when
-loaded into a local copy of the page before the application scripts. Neither
-test calls a provider.
+loaded into a local copy of the page before the application scripts. The
+`tests/local_backend_fixture.py` and `tests/real-http-flow.js` fixtures exercise
+browser-to-API traffic with a synthetic runner. None of these tests calls a
+provider.

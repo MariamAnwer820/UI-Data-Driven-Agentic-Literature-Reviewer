@@ -21,6 +21,14 @@ function Settings({s,set}) {
 
   const u = (k,v) => set({...s,[k]:v});
 
+  const updateApiKey = (provider,value) => {
+    u('apiKeys',{
+      ...(s.apiKeys || {}),
+      [provider]:value
+    });
+    u('keySaved',false);
+  };
+
   const Sel = (l,k,o) =>
     h('label',{
       style:{display:'block',marginBottom:14}
@@ -39,6 +47,23 @@ function Settings({s,set}) {
       )
     );
 
+  // API Key Input
+  const ApiInput = (label,provider,placeholder) =>
+    h('label',{
+      style:{display:'block',marginBottom:14}
+    },
+      h('span',{className:'mu'},label),
+      h('input',{
+        className:'in',
+        type:'password',
+        style:{marginTop:4},
+        placeholder,
+        autoComplete:'off',
+        value:(s.apiKeys || {})[provider] || '',
+        onChange:e=>updateApiKey(provider,e.target.value)
+      })
+    );
+
   // Apply selected theme
   React.useEffect(()=>{
     const root = document.documentElement;
@@ -53,6 +78,36 @@ function Settings({s,set}) {
       root.removeAttribute('data-theme');
     }
   },[s.theme]);
+
+  // Search engine conditions
+  const searchEngine = s.engine || 'OpenAlex + Semantic Scholar';
+
+  const showOpenAlex =
+    searchEngine.includes('OpenAlex');
+
+  const showSemanticScholar =
+    searchEngine.includes('Semantic Scholar');
+
+  const showArxiv =
+    searchEngine.includes('arXiv');
+
+  // Language model options
+  const models = [
+    'Gemini 2.5 Flash',
+    'Gemini 2.5 Pro',
+    'OpenAI GPT-4.1 mini',
+    'OpenAI GPT-4.1',
+    'Anthropic Claude Sonnet',
+    'Anthropic Claude Haiku'
+  ];
+
+  // Detect selected model provider
+  const selectedModel = s.model || models[0];
+
+  const selectedProvider =
+    selectedModel.startsWith('Gemini') ? 'Google Gemini' :
+    selectedModel.startsWith('OpenAI') ? 'OpenAI' :
+    'Anthropic';
 
   return h('div',{
     style:{
@@ -77,24 +132,41 @@ function Settings({s,set}) {
 
       h('h2',null,'Research'),
 
-      Sel('Language model','model',[
-        'Gemini 2.5 Flash (free tier)',
-        'Gemini 2.5 Pro'
-      ]),
+      Sel('Language model','model',models),
 
       Sel('Search engine','engine',[
         'OpenAlex',
+        'Semantic Scholar',
+        'arXiv',
         'OpenAlex + Semantic Scholar',
-        'Semantic Scholar'
+        'OpenAlex + arXiv',
+        'Semantic Scholar + arXiv',
+        'OpenAlex + Semantic Scholar + arXiv'
       ]),
 
       Sel('Maximum papers per search','max',[
         '5','10','20','30','50','80','100'
       ]),
-      h('label',{style:{display:'block',marginBottom:14}},h('span',{className:'mu'},'Papers selected for detailed analysis'),
-        h('input',{className:'in',type:'number',min:1,max:1000,value:s.selectedPapers,
-          onChange:e=>u('selectedPapers',e.target.value)})),
-      h('p',{className:'mu'},'The search limit applies to each query and caps new papers per search round.')
+
+      h('label',{
+        style:{display:'block',marginBottom:14}
+      },
+        h('span',{className:'mu'},
+          'Papers selected for detailed analysis'
+        ),
+        h('input',{
+          className:'in',
+          type:'number',
+          min:1,
+          max:1000,
+          value:s.selectedPapers || 10,
+          onChange:e=>u('selectedPapers',e.target.value)
+        })
+      ),
+
+      h('p',{className:'mu'},
+        'The search limit applies to each query and caps new papers per search round.'
+      )
     ),
 
     // API Configuration
@@ -108,52 +180,73 @@ function Settings({s,set}) {
       h('p',{
         className:'mu',
         style:{marginBottom:14}
-      },'Configure your AI provider and API key.'),
-
-      // AI Provider
-      h('label',{
-        style:{display:'block',marginBottom:14}
       },
-
-        h('span',{className:'mu'},'AI Provider'),
-
-        h('select',{
-          className:'in',
-          style:{marginTop:4},
-          value:s.provider || 'Google Gemini',
-          onChange:e=>u('provider',e.target.value)
-        },
-
-          h('option',{
-            value:'Google Gemini'
-          },'Google Gemini'),h('option',{value:'OpenAlex'},'OpenAlex'),
-          h('option',{value:'Semantic Scholar'},'Semantic Scholar')
-        )
+        'Configure your language model and academic search API keys.'
       ),
 
-      // API Key - No Switch Button
-      h('label',{
-        style:{display:'block',marginBottom:14}
-      },
-
-        h('span',{className:'mu'},'API Key'),
-
-        h('input',{
-          className:'in',
-          type:'password',
-          placeholder:'Enter your API key',
-          autoComplete:'off',
-          value:(s.apiKeys || {})[s.provider || 'Google Gemini'] || '',
-          onChange:e=>u('apiKeys',{...(s.apiKeys || {}),[s.provider || 'Google Gemini']:e.target.value})
-        })
-      ),
+      // Language Model API
+      h('h3',null,'Language Model API'),
 
       h('p',{
         className:'mu',
-        style:{fontSize:12,marginBottom:14}
+        style:{marginBottom:14}
       },
-        'Keys remain in memory for this browser session and are cleared on refresh.'
+        'Selected provider: ',selectedProvider
       ),
+
+      selectedProvider === 'Google Gemini' &&
+        ApiInput(
+          'Google Gemini API Key',
+          'Google Gemini',
+          'Enter your Gemini API key'
+        ),
+
+      selectedProvider === 'OpenAI' &&
+        ApiInput(
+          'OpenAI API Key',
+          'OpenAI',
+          'Enter your OpenAI API key'
+        ),
+
+      selectedProvider === 'Anthropic' &&
+        ApiInput(
+          'Anthropic API Key',
+          'Anthropic',
+          'Enter your Anthropic API key'
+        ),
+
+      h('div',{
+        style:{
+          height:1,
+          background:'var(--bd)',
+          margin:'18px 0'
+        }
+      }),
+
+      // Research Search API
+      h('h3',null,'Research Search API'),
+
+      showOpenAlex &&
+        ApiInput(
+          'OpenAlex API Key',
+          'OpenAlex',
+          'Enter your OpenAlex API key'
+        ),
+
+      showSemanticScholar &&
+        ApiInput(
+          'Semantic Scholar API Key',
+          'Semantic Scholar',
+          'Enter your Semantic Scholar API key'
+        ),
+
+      showArxiv &&
+        h('p',{
+          className:'mu',
+          style:{marginBottom:14}
+        },
+          'arXiv uses a public API and does not require an API key.'
+        ),
 
       // Save API Configuration
       h('button',{
@@ -162,7 +255,18 @@ function Settings({s,set}) {
           u('keySaved',true)
         }
       },'Save API Configuration'),
-      s.keySaved&&h('p',{className:'mu',role:'status'},'Keys are ready for this session.')
+
+      s.keySaved&&h('p',{
+        className:'mu',
+        role:'status'
+      },'API configuration is ready for this session.'),
+
+      h('p',{
+        className:'mu',
+        style:{fontSize:12,marginTop:12}
+      },
+        'Keys remain in memory for this browser session and are cleared on refresh.'
+      )
     ),
 
     // Appearance Settings

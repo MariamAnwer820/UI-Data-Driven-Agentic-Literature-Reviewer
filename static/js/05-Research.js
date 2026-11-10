@@ -1,89 +1,21 @@
-function Research({run}) {
-  const [version,refresh]=S(0), [error,setError]=S(''), [busy,setBusy]=S(false);
-  const [connection,setConnection]=S(0);
-  const update=()=>refresh(n=>n+1);
-  E(()=>{
-    const controller=new AbortController(), signal=controller.signal;
-    async function connect() {
-      try {
-        setError('');
-        if(!run.token) {
-          const credentials={gemini_api_key:run.settings.geminiKey.trim()};
-          if(run.settings.openalexKey.trim()) credentials.openalex_api_key=run.settings.openalexKey.trim();
-          if(run.settings.semanticKey.trim()) credentials.semantic_scholar_api_key=run.settings.semanticKey.trim();
-          const session=await ReviewAPI.session(credentials,signal); run.token=session.token;
-        }
-        if(run.file && !run.datasetId) {
-          run.status='uploading'; update();
-          run.datasetId=(await ReviewAPI.upload(run.file,run.token,signal)).dataset_id;
-        }
-        if(!run.id) {
-          const body={question:run.question,constraints:run.constraints?[run.constraints]:[],task:run.task,
-            provider:run.settings.provider,model:run.settings.model,client_request_id:run.requestId};
-          if(run.datasetId) { body.dataset_id=run.datasetId; body.target_column=run.target; }
-          const job=await ReviewAPI.start(body,run.token,signal); run.id=job.review_id; run.status=job.status;
-        }
-        if(run.status==='completed' && !run.report) run.report=await ReviewAPI.report(run.id,run.token,signal);
-        if(!run.events.length || !['awaiting_review','paused','failed','cancelled','completed'].includes(run.status)) {
-          await ReviewAPI.events(run.id,run.token,run.lastId,event=>{
-            run.lastId=event.id; run.events.push(event);
-            if(event.status && event.type!=='progress') run.status=event.status;
-            if(event.type==='review_required') run.reviewDetails=event.details;
-            if(event.type==='paused') run.pauseDetails=event;
-            if(event.type==='error') run.failure=event.message;
-            update();
-          },signal);
-          const state=await ReviewAPI.status(run.id,run.token,signal); run.status=state.status;
-          if(run.status==='completed') run.report=await ReviewAPI.report(run.id,run.token,signal);
-        }
-        update();
-      } catch(e) { if(e.name!=='AbortError') setError(e.message||'Connection failed.'); }
-    }
-    connect(); return ()=>controller.abort();
-  },[connection]);
-  async function action(name) {
-    setBusy(true); setError('');
-    try { await ReviewAPI.action(run.id,name,run.token); run.status=name==='cancel'?'cancelling':'running';
-      update(); setConnection(n=>n+1);
-    } catch(e) {setError(e.message);} finally {setBusy(false);}
-  }
-  async function download() {
-    try {const text=await ReviewAPI.markdown(run.id,run.token); const url=URL.createObjectURL(new Blob([text],{type:'text/markdown'}));
-      const link=document.createElement('a'); link.href=url; link.download='coverage-aware-report.md'; link.click(); URL.revokeObjectURL(url);
-    } catch(e) {setError(e.message);}
-  }
-  const report=run.report&&run.report.validated_report;
-  const list=(items)=>h('ul',null,(items||[]).map((item,i)=>h('li',{key:i},String(item))));
-  const section=(title,body)=>h('section',{className:'card',style:{marginTop:14}},h('h2',null,title),body);
-  const json=(value)=>h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:12}},JSON.stringify(value,null,2));
-  const link=(value)=>{try {const parsed=new URL(value); return ['http:','https:'].includes(parsed.protocol)?parsed.href:null;}catch(_){return null;}};
-  return h('div',{style:{maxWidth:980}},h('h1',null,'Coverage-aware review'),h('div',{className:'bubble'},run.question),
-    section('Status: '+run.status,h('div',null,
-      h('p',{className:'mu'},'Progress comes from the backend. A review can pause when evidence requires inspection.'),
-      error&&h('p',{className:'err',role:'alert'},error),
-      run.failure&&h('p',{className:'err',role:'alert'},run.failure),
-      error&&h('button',{className:'btn o',onClick:()=>setConnection(n=>n+1)},'Reconnect'),
-      run.id&&!['cancelled','completed','failed'].includes(run.status)&&h('button',{className:'btn o',disabled:busy,onClick:()=>action('cancel')},'Cancel review'))),
-    run.status==='awaiting_review'&&section('Review evidence before continuing',h('div',null,
-      h('p',null,'Inspect the preparation details and unresolved papers before approving family consolidation.'),
-      json(run.reviewDetails),h('button',{className:'btn',disabled:busy,onClick:()=>action('approve')},'Approve and continue'))),
-    run.status==='paused'&&section('Review paused',h('div',null,h('p',null,run.pauseDetails&&run.pauseDetails.message),
-      json(run.pauseDetails&&run.pauseDetails.details),h('p',{className:'mu'},'Retry is appropriate only after correcting a recoverable issue. Some coverage issues require manual inspection.'),
-      h('button',{className:'btn o',disabled:busy,onClick:()=>action('resume')},'Resume'))),
-    section('Progress events',run.events.length?h('ol',null,run.events.map((event,i)=>h('li',{key:event.id||i},
-      h('span',null,[event.stage,event.status,event.message].filter(Boolean).join(' — ')||event.type),
-      event.stage==='provider_retry'&&h('span',null,' (attempt '+event.attempt+' of '+event.max_attempts+')')))):h('p',{className:'mu'},'Waiting for progress.')),
-    report&&h('div',null,
-      section(report.report_title||'Report',h('div',null,h('p',null,report.executive_summary),h('button',{className:'btn o',onClick:download},'Download Markdown'),
-        h('p',{className:'mu'},'Structural validation does not establish scientific correctness. Review source material before citing.'))),
-      section('Coverage and limitations',h('div',null,h('p',null,'Papers received: '+report.evidence_scope.papers_received),
-        h('p',null,'Review level: '+report.evidence_scope.review_level),list(report.evidence_scope.limitations))),
-      section('Method families',h('div',null,(report.method_families||[]).map((family,i)=>h('div',{key:i,style:{marginBottom:16}},
-        h('h3',null,family.name),h('p',null,family.description),h('p',null,family.evidence),
-        h('p',{className:'mu'},'Supporting papers: '+(family.supporting_papers||[]).join(', ')))),h('p',null,report.family_comparison))),
-      section('Research gaps',list(report.important_gaps)),
-      section('Recommendation and experiment plan',json(report.recommendation)),
-      section('Source references',h('ul',null,(report.references||[]).map(ref=>h('li',{key:ref.paper_id},
-        ref.paper_id+' — '+ref.title+' ('+ref.year+') ',link(ref.url_or_doi)&&h('a',{href:link(ref.url_or_doi),target:'_blank',rel:'noopener noreferrer'},'Source'))))),
-      section('Claim-level evidence links',json(report.claim_lineage))));
-}
+function Research({q,cons,ds,s,run,init,openPaper,saved,toggle,onDone}){const[st,setSt]=S(init?STEPS.length:0);const[notes,setNotes]=S({});const[data,setData]=S(init);const[err,setErr]=S('');const[tab,setTab]=S('land');const[n,setN]=S(0);
+E(()=>{if(init&&n===0)return;const ctrl=new AbortController();setSt(0);setNotes({});setData(null);setErr('');
+const fd=new FormData();fd.append('question',q);fd.append('constraints',cons||'');fd.append('model',s.model);fd.append('engine',s.engine);fd.append('max_papers',s.max);if(ds&&ds.file)fd.append('file',ds.file);
+(async()=>{try{const res=await fetch('/api/research',{method:'POST',body:fd,signal:ctrl.signal});if(!res.ok||!res.body)throw new Error('Server error '+res.status);
+const rd=res.body.getReader(),dec=new TextDecoder();let buf='';
+const on=ev=>{if(ev.type==='step'){setSt(ev.status==='done'?ev.i+1:ev.i);if(ev.note)setNotes(o=>({...o,[ev.i]:ev.note}))}else if(ev.type==='result'){setData(ev.data);setSt(STEPS.length);onDone(ev.data)}else if(ev.type==='error')setErr(ev.message)};
+for(;;){const{value,done}=await rd.read();if(done)break;buf+=dec.decode(value,{stream:true});const L=buf.split('\n');buf=L.pop();L.forEach(l=>{if(l.trim())on(JSON.parse(l))})}
+}catch(e){if(e.name!=='AbortError')setErr(e.message||'Request failed')}})();
+return()=>ctrl.abort()},[n]);
+const Ls=data?data.landscape:{};
+return h('div',{style:{maxWidth:980}},h('div',{className:'bubble'},q),
+!data&&h('div',{className:'card',style:{margin:'18px 0'}},h('div',{className:'row',style:{marginBottom:8}},h('span',{className:'av'},I('book',16)),h('span',null,'The agent is working on your question. Sources: '+s.engine+'.')),
+STEPS.map(([a,b],i)=>h('div',{className:'step',key:a},h('span',{className:'dot '+(i<st?'d':i===st&&!err?'a':'')},i<st&&I('check',12)),h('div',{style:{opacity:i>st?.45:1}},h('div',null,(i+1)+'. '+a),h('div',{className:'mu',style:{fontSize:12}},notes[i]||(i<st?'Completed':i===st?'In progress…':b)))))),
+err&&h('div',{className:'card'},h('p',{className:'err',role:'alert'},err),h('button',{className:'btn o',style:{marginTop:10},onClick:()=>setN(n+1)},'Retry')),
+data&&h('div',{style:{marginTop:18}},h('div',{className:'tabs',role:'tablist'},[['land','Research landscape'],['plan','Experiment plan'],['pap','Papers ('+data.papers.length+')'],['data','Dataset profile']].map(([k,l])=>h('button',{key:k,role:'tab',className:tab===k?'on':'',onClick:()=>setTab(k)},l))),
+tab==='land'&&h('div',{className:'grid3',style:{gridTemplateColumns:'repeat(auto-fit,minmax(260px,1fr))'}},
+[['Methods',Ls.methods],['Datasets',Ls.datasets],['Metrics',Ls.metrics],['Research gap',Ls.gaps]].map(([t,l])=>h('div',{className:'card',key:t},h('h2',null,t),h('ul',{style:{paddingLeft:18,fontSize:14,display:'grid',gap:6}},(l||[]).map(x=>h('li',{key:x},x)))))),
+tab==='plan'&&h('div',{className:'card'},h('table',null,h('thead',null,h('tr',null,['Stage','What to run','Measure'].map(x=>h('th',{key:x},x)))),h('tbody',null,data.experiment_plan.map((r,k)=>h('tr',{key:k},h('td',{style:{fontWeight:600}},r.stage),h('td',null,r.run),h('td',null,r.measure)))))),
+tab==='pap'&&data.papers.map(p=>h('div',{className:'li',key:p.id},h('div',null,h('div',{className:'t serif'},p.t),h('div',{className:'mu'},p.a+' · '+p.y+' · '+p.v),h('div',{className:'row',style:{marginTop:8}},h('span',{className:'chip'},p.tag),h('span',{className:'mu'},'Relevance '+p.rel+'%'))),h('button',{className:'btn o',onClick:()=>toggle(p.id),'aria-pressed':saved.includes(p.id)},saved.includes(p.id)?'Saved':'Save'),h('button',{className:'btn',onClick:()=>openPaper(p)},'View'))),
+tab==='data'&&(data.profile?h(Profile,{d:data.profile}):h('div',{className:'card'},'No dataset was attached to this review.')),
+h('p',{className:'mu',style:{marginTop:16}},'Paper details come from OpenAlex / Semantic Scholar. Findings are summarized from abstracts only; verify against the full text before citing.')))}

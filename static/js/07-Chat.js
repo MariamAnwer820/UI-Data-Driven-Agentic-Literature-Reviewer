@@ -1,28 +1,21 @@
-function Chat({start,ds,setDs,s,go}) {
-  const [question,setQuestion]=S(''), [constraints,setConstraints]=S('');
-  const [task,setTask]=S('classification'), [target,setTarget]=S(''), [error,setError]=S('');
-  function run() {
-    if (!question.trim()) return setError('Enter a research question.');
-    if (!s.geminiKey.trim()) return setError('Add your Gemini API key in Settings first.');
-    if (ds && !target.trim()) return setError('Enter the target column name for your CSV.');
-    setError(''); start(question.trim(), constraints.trim(), task, target.trim());
-  }
-  return h('div',{style:{maxWidth:900}},h('h1',null,'Start a research review'),
-    h('p',{className:'mu'},'Ask a question and optionally add a CSV dataset.'),
-    h('div',{className:'card form',style:{marginTop:16}},
-      h('label',null,h('b',null,'Research question'),h('textarea',{className:'ta',value:question,
-        onChange:e=>setQuestion(e.target.value),'aria-label':'Research question'})),
-      h('label',null,h('b',null,'Constraints (optional)'),h('textarea',{className:'ta',value:constraints,
-        onChange:e=>setConstraints(e.target.value),'aria-label':'Constraints'})),
-      h('label',null,h('b',null,'Task'),h('select',{className:'in',value:task,onChange:e=>setTask(e.target.value)},
-        h('option',{value:'classification'},'Classification'),h('option',{value:'regression'},'Regression'))),
-      h('label',null,h('b',null,'Dataset (optional CSV)'),h('input',{className:'in',type:'file',accept:'.csv,text/csv',
-        onChange:e=>setDs(e.target.files[0]||null)})),
-      ds&&h('div',null,h('p',{className:'mu'},'Selected: '+ds.name),
-        h('label',null,h('b',null,'Target column'),h('input',{className:'in',value:target,
-          onChange:e=>setTarget(e.target.value),placeholder:'Exact column name'})),
-        h('button',{className:'btn o',type:'button',onClick:()=>setDs(null)},'Remove dataset')),
-      error&&h('p',{className:'err',role:'alert'},error),
-      h('div',{className:'row'},h('button',{className:'btn',onClick:run},'Start research'),
-        h('button',{className:'btn o',onClick:()=>go('settings')},'Settings'))));
-}
+function Chat({start,ds,setDs}){const[q,setQ]=S('');const[c,setC]=S('');const[m,setM]=S('');const[err,setErr]=S('');const[conn,setConn]=S(false);const[src,setSrc]=S('Google Drive');const[url,setUrl]=S('');const[showData,setShowData]=S(false);
+const load=f=>{if(!f)return;if(!/\.csv$/i.test(f.name)){setErr('This preview reads .csv files only. Choose a CSV file.');return}setErr('');const r=new FileReader();r.onload=()=>{try{setDs({...parseCSV(String(r.result),f.name),file:f})}catch(x){setErr('Could not read that file. Check that it is a valid CSV.')}};r.readAsText(f.slice(0,2e6))};
+const run=()=>q.trim()?start(q.trim(),c.trim()):setErr('Describe your research problem to start.');
+const send=()=>{if(m.trim()){setQ(q?q+' '+m.trim():m.trim());setM('')}};
+const Up=(cls,kids)=>h('label',{className:cls,onDragOver:e=>e.preventDefault(),onDrop:e=>{e.preventDefault();load(e.dataTransfer.files[0])}},...[].concat(kids),h('input',{type:'file',accept:'.csv',hidden:true,onChange:e=>load(e.target.files[0])}));
+return h('div',{className:'cg'+(showData?'':' solo')},h('div',{className:'col'},
+h('div',{className:'row hi',style:{alignItems:'flex-start',flexWrap:'nowrap'}},h('span',{className:'ic'},I('book',18)),h('div',{className:'card',style:{padding:'12px 16px'}},'Hello! I’m your AI research assistant.',h('br'),'Tell me about your research problem and dataset to get started.')),
+h('div',{className:'card form'},
+h('div',{className:'fld'},h('span',{className:'ic'},I('doc',18)),h('div',null,h('b',null,'Research Problem'),h('textarea',{className:'ta',style:{minHeight:100},value:q,onChange:e=>setQ(e.target.value),placeholder:'e.g., What is the main research question or problem you want to explore?','aria-label':'Research problem'}))),
+h('div',{className:'fld'},h('span',{className:'ic'},I('db',18)),h('div',null,h('b',null,'Dataset'),
+h('div',{className:'dsb'},h('input',{className:'in',style:{margin:0,border:0},readOnly:true,value:ds?ds.name:'',placeholder:'No dataset added yet (optional)','aria-label':'Dataset'}),
+h('button',{type:'button',className:'btn o adb',onClick:()=>setShowData(!showData),'aria-expanded':showData},showData?'Hide data':'+ Add data')))),
+h('div',{className:'fld'},h('span',{className:'ic'},I('shield',18)),h('div',null,h('b',null,'Constraints'),h('textarea',{className:'ta',style:{minHeight:70},value:c,onChange:e=>setC(e.target.value),placeholder:'e.g., model size, speed, available resources, etc…','aria-label':'Constraints'}))),
+err&&h('p',{className:'err',role:'alert'},err),h('button',{className:'btn go',style:{width:'100%',padding:14,marginTop:6},onClick:run},I('play',16),'Start Research')),
+h('div',{className:'row msgbar',style:{marginTop:'auto',flexWrap:'nowrap'}},h('span',{style:{color:'var(--wine)'}},I('clip')),h('input',{className:'in',style:{border:0,margin:0},value:m,onChange:e=>setM(e.target.value),onKeyDown:e=>e.key==='Enter'&&send(),placeholder:'Type a message…','aria-label':'Message'}),h('button',{onClick:send,'aria-label':'Send',style:{color:'var(--wine)'}},I('send',20)))),
+showData&&h('div',{className:'col sidep'},
+h('div',{className:'card'},h('div',{className:'row',style:{flexWrap:'nowrap',marginBottom:14}},h('span',{className:'ic'},I('db',18)),h('div',{style:{flex:1}},h('h2',{style:{margin:0}},'Dataset'),h('div',{className:'mu'},'Upload your dataset from your device or connect to an external source.')),h('button',{className:'xb',onClick:()=>setShowData(false),'aria-label':'Close dataset panel'},'×')),
+h('div',{style:{display:'grid',gridTemplateColumns:'1fr 1fr',gap:12}},Up('tile',[I('cloud',28),'Upload from Device',h('small',null,'Select a CSV or drag & drop')]),h('button',{className:'tile'+(conn?' on':''),onClick:()=>setConn(!conn),'aria-expanded':conn},I('link',28),'Connect External Source',h('small',null,'Google Drive, S3, Kaggle'))),
+conn&&h('div',{style:{marginTop:12}},h('select',{className:'in',value:src,onChange:e=>setSrc(e.target.value),'aria-label':'Source'},['Google Drive','Amazon S3','Kaggle'].map(x=>h('option',{key:x},x))),h('input',{className:'in',value:url,onChange:e=>setUrl(e.target.value),placeholder:'Paste a file link or dataset name','aria-label':'Dataset link'}),h('button',{className:'btn o',style:{marginTop:10},onClick:()=>setDs({...SAMPLE,name:src+': '+(url||'sample dataset')})},'Connect (preview uses sample data)'))),
+ds?h(Profile,{d:ds}):h('div',{className:'card',style:{textAlign:'center'}},h('div',{style:{color:'var(--wine)'}},I('db',30)),h('p',{className:'mu',style:{marginTop:6}},'Your dataset profile appears here after you upload a CSV: size, missing values and class balance.'),h('button',{className:'btn o',style:{marginTop:10},onClick:()=>setDs(SAMPLE)},'Try sample data'))))}
+ 

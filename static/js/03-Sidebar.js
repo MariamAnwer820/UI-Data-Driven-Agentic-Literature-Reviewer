@@ -1,8 +1,4 @@
-function Sidebar({v,go,hasReview}) {
-  const items=[['home','New review','chat'],['research','Current review','book'],['settings','Settings','cog']];
-  return h('nav',{className:'side','aria-label':'Main'},
-    h('div',{className:'logo'},h(Logo,{s:34}),h('div',{className:'serif',style:{fontSize:14}},'Data-Driven Agentic Literature Reviewer')),
-    items.map(([key,label,icon])=>h('button',{key,className:'nv'+(v===key?' on':''),
-      disabled:key==='research'&&!hasReview,onClick:()=>go(key),'aria-current':v===key?'page':undefined},I(icon),label)),
-    h('div',{className:'me'},'Local session'));
-}
+function Sidebar({v,go}){const it=[['home','Chat','chat'],['sessions','History','clock'],['saved','Saved Papers','mark'],['settings','Settings','cog']];
+return h('nav',{className:'side','aria-label':'Main'},h('div',{className:'logo'},h(Logo,{s:34}),h('div',{className:'serif',style:{fontSize:14,lineHeight:1.3,marginTop:6}},'Data-Driven Agentic Literature Reviewer')),
+it.map(([k,l,i])=>h('button',{key:k,className:'nv'+(v===k?' on':''),onClick:()=>go(k),'aria-current':v===k?'page':undefined},I(i),l)),
+h('div',{className:'me'},h('span',{className:'av'},'M'),h('div',null,h('div',{style:{color:'#fff',fontWeight:500}},'Mariam Anwer'),'mariam@example.com')))}

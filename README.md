@@ -3,7 +3,7 @@
 This UI connects to the separate Python backend's local API. It is not yet a
 public, multi-user deployment and does not implement user accounts. Provider
 keys and the session token live in browser memory and are cleared on refresh.
-Backend sessions expire after one hour; refreshing also loses the current review.
+Backend sessions expire after four hours; refreshing also loses the current review.
 
 1. Start the backend from the backend repository root:
 

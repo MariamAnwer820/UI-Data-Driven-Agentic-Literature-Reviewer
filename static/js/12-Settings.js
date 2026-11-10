@@ -89,8 +89,12 @@ function Settings({s,set}) {
       ]),
 
       Sel('Maximum papers per search','max',[
-        '5','10','20','30'
-      ])
+        '5','10','20','30','50','80','100'
+      ]),
+      h('label',{style:{display:'block',marginBottom:14}},h('span',{className:'mu'},'Papers selected for detailed analysis'),
+        h('input',{className:'in',type:'number',min:1,max:1000,value:s.selectedPapers,
+          onChange:e=>u('selectedPapers',e.target.value)})),
+      h('p',{className:'mu'},'The search limit applies to each query and caps new papers per search round.')
     ),
 
     // API Configuration
@@ -122,7 +126,8 @@ function Settings({s,set}) {
 
           h('option',{
             value:'Google Gemini'
-          },'Google Gemini')
+          },'Google Gemini'),h('option',{value:'OpenAlex'},'OpenAlex'),
+          h('option',{value:'Semantic Scholar'},'Semantic Scholar')
         )
       ),
 
@@ -137,8 +142,9 @@ function Settings({s,set}) {
           className:'in',
           type:'password',
           placeholder:'Enter your API key',
-          value:s.apiKey || '',
-          onChange:e=>u('apiKey',e.target.value)
+          autoComplete:'off',
+          value:(s.apiKeys || {})[s.provider || 'Google Gemini'] || '',
+          onChange:e=>u('apiKeys',{...(s.apiKeys || {}),[s.provider || 'Google Gemini']:e.target.value})
         })
       ),
 
@@ -146,16 +152,17 @@ function Settings({s,set}) {
         className:'mu',
         style:{fontSize:12,marginBottom:14}
       },
-        'Keep your API key secure. It should be stored and used by the backend.'
+        'Keys remain in memory for this browser session and are cleared on refresh.'
       ),
 
       // Save API Configuration
       h('button',{
         className:'btn',
         onClick:()=>{
-          // Connect this action to Flask API later
+          u('keySaved',true)
         }
-      },'Save API Configuration')
+      },'Save API Configuration'),
+      s.keySaved&&h('p',{className:'mu',role:'status'},'Keys are ready for this session.')
     ),
 
     // Appearance Settings

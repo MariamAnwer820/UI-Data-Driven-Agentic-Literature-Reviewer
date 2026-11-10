@@ -1,0 +1,43 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>API client tests running</title>
+<pre id="result">Running</pre>
+<script src="../static/js/04-api.js"></script>
+<script>
+(async()=>{
+  const calls=[];
+  const assert=(condition,message)=>{if(!condition) throw new Error(message);};
+  window.fetch=async(url,options)=>{
+    calls.push({url,options});
+    if(url.includes('/events?')) {
+      const encoder=new TextEncoder();
+      return new Response(new ReadableStream({start(controller){
+        controller.enqueue(encoder.encode('{"id":1,"type":"pro'));
+        controller.enqueue(encoder.encode('gress"}\n{"id":2,"status":"paused"}'));
+        controller.close();
+      }}),{status:200});
+    }
+    if(url.endsWith('/api/sessions')) return Response.json({token:'test-token'});
+    if(url.endsWith('/api/datasets')) return Response.json({dataset_id:'dataset-id'});
+    if(url.endsWith('/api/reviews')) return Response.json({review_id:'review-id',status:'running'});
+    if(url.endsWith('/api/session')) return new Response(null,{status:204});
+    return Response.json({detail:'Unavailable'},{status:503});
+  };
+  try {
+    const session=await ReviewAPI.session({gemini_api_key:'test-key'});
+    assert(session.token==='test-token','session response');
+    const file=new Blob(['a,b\n1,2'],{type:'text/csv'});
+    await ReviewAPI.upload(file,session.token);
+    assert(calls[1].options.headers.Authorization==='Bearer test-token','upload bearer');
+    assert(calls[1].options.body===file,'raw CSV body');
+    await ReviewAPI.start({question:'test'},session.token);
+    assert(JSON.parse(calls[2].options.body).question==='test','review JSON');
+    const events=[]; await ReviewAPI.events('review-id',session.token,0,e=>events.push(e));
+    assert(events.length===2 && events[0].type==='progress' && events[1].status==='paused','fragmented stream');
+    try {await ReviewAPI.status('review-id',session.token); throw new Error('missing error');}
+    catch(error) {assert(error.message==='Unavailable','error detail');}
+    await ReviewAPI.close(session.token);
+    document.title='PASS'; document.getElementById('result').textContent='PASS: session, upload, review, streaming, errors, close';
+  } catch(error) {document.title='FAIL';document.getElementById('result').textContent='FAIL: '+error.message;}
+})();
+</script>

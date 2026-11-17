@@ -15,9 +15,12 @@ function saveReport(payload){
 }
 E(()=>{const ctrl=new AbortController(),signal=ctrl.signal;
 (async()=>{try{setErr('');
+if(run.isSaved&&run.status==='completed'&&!run.data){saveReport(await ReviewAPI.savedReport(run.reviewId,run.accountToken));update();return}
 if(!run.token){const keys=run.settings.apiKeys||{},credentials={gemini_api_key:(keys['Google Gemini']||'').trim()};
 if((keys.OpenAlex||'').trim())credentials.openalex_api_key=keys.OpenAlex.trim();if((keys['Semantic Scholar']||'').trim())credentials.semantic_scholar_api_key=keys['Semantic Scholar'].trim();
-run.token=(await ReviewAPI.session(credentials,signal)).token}
+if(!credentials.gemini_api_key)throw new Error('Add your Gemini API key in Settings to start or resume a review.');
+if(run.isSaved){const restored=await ReviewAPI.restore(run.reviewId,credentials,run.accountToken,signal);run.token=restored.token;run.status=restored.status;run.events=restored.events;run.lastId=run.events.length?run.events[run.events.length-1].id:0;const detail=[...run.events].reverse().find(e=>e.type==='review_required');run.reviewDetails=detail&&detail.details;const paused=[...run.events].reverse().find(e=>e.type==='paused');run.pauseDetails=paused}
+else run.token=(await ReviewAPI.session(credentials,signal,run.accountToken)).token}
 if(run.ds&&run.ds.file&&!run.datasetId){run.status='uploading';update();run.datasetId=(await ReviewAPI.upload(run.ds.file,run.token,signal)).dataset_id}
 if(!run.reviewId){const providers={'OpenAlex':'openalex','Semantic Scholar':'semantic_scholar','OpenAlex + Semantic Scholar':'both'},models={'Gemini 2.5 Flash (free tier)':'gemini-2.5-flash','Gemini 2.5 Pro':'gemini-2.5-pro'};
 const body={question:run.q,constraints:run.cons?[run.cons]:[],task:run.task||'classification',provider:providers[run.settings.engine],model:models[run.settings.model],papers_per_search:Number(run.settings.max),selected_papers:Number(run.settings.selectedPapers),client_request_id:run.id};
@@ -30,7 +33,7 @@ run.status=(await ReviewAPI.status(run.reviewId,run.token,signal)).status;if(run
 update();
 }catch(e){if(e.name!=='AbortError')setErr(e.message||'Connection failed.')}})();return()=>ctrl.abort()},[connection]);
 async function action(name){setBusy(true);setErr('');try{await ReviewAPI.action(run.reviewId,name,run.token);run.status=name==='cancel'?'cancelling':'running';update();setConnection(n=>n+1)}catch(e){setErr(e.message)}finally{setBusy(false)}}
-async function download(){try{const content=await ReviewAPI.markdown(run.reviewId,run.token),url=URL.createObjectURL(new Blob([content],{type:'text/markdown'})),a=document.createElement('a');a.href=url;a.download='coverage-aware-report.md';a.click();URL.revokeObjectURL(url)}catch(e){setErr(e.message)}}
+async function download(){try{const content=run.isSaved&&!run.token?await ReviewAPI.savedMarkdown(run.reviewId,run.accountToken):await ReviewAPI.markdown(run.reviewId,run.token),url=URL.createObjectURL(new Blob([content],{type:'text/markdown'})),a=document.createElement('a');a.href=url;a.download='coverage-aware-report.md';a.click();URL.revokeObjectURL(url)}catch(e){setErr(e.message)}}
 const data=run.data,report=data&&data.report;
 const list=items=>h('ul',{style:{paddingLeft:18}},(items||[]).map((item,i)=>h('li',{key:i},item)));
 const json=value=>h('pre',{style:{whiteSpace:'pre-wrap',overflowWrap:'anywhere',fontSize:12}},JSON.stringify(value,null,2));

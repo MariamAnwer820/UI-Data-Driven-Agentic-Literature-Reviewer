@@ -40,7 +40,14 @@ const ReviewAPI = (() => {
     process(buffer);
   }
   return {
-    session: (credentials, signal) => json('/api/sessions', 'POST', credentials, null, signal),
+    register: credentials => json('/api/accounts/register', 'POST', credentials),
+    login: credentials => json('/api/accounts/login', 'POST', credentials),
+    logout: token => json('/api/accounts/logout', 'POST', undefined, token),
+    history: token => json('/api/accounts/reviews', 'GET', undefined, token),
+    savedReport: (id, token) => json('/api/accounts/reviews/' + encodeURIComponent(id) + '/report', 'GET', undefined, token),
+    savedMarkdown: async (id, token) => (await request('/api/accounts/reviews/' + encodeURIComponent(id) + '/report?format=markdown', {}, token)).text(),
+    restore: (id, credentials, token, signal) => json('/api/accounts/reviews/' + encodeURIComponent(id) + '/restore', 'POST', credentials, token, signal),
+    session: (credentials, signal, accountToken) => json('/api/sessions', 'POST', credentials, accountToken, signal),
     upload: async (file, token, signal) => (await request('/api/datasets', {
       method: 'POST', headers: { 'Content-Type': 'text/csv' }, body: file, signal
     }, token)).json(),

@@ -18,14 +18,15 @@ in depth. Both are subject to relevance screening and available sources.
 CSV reviews need a target column and task. External source and sample dataset
 controls are previews; use a real CSV file to run a dataset-aware review.
 
-Progress and review decisions come from the API. History and saved paper
-selections last for the current browser session and are not private accounts.
-The original login screen is only a visual placeholder. A completed report is
+Progress and review decisions come from the API. With PostgreSQL persistence enabled,
+users can create an account and return to their saved review history and reports. Saved
+paper selections last for the current browser session. Provider keys remain in memory;
+re-enter them after signing in to resume an unfinished review. A completed report is
 subject to scientific review even when structural validation passes.
 
 The API accepts local connections only. It is not ready for a public Vercel
 frontend: public access requires real access controls, HTTPS, an appropriate
-host for long-running jobs, and durable job/session storage and recovery.
+host for long-running jobs, and production-ready authentication and recovery.
 Provider keys must not be put in Git, URLs, browser storage, or logs.
 
 `tests/api-client.html`, `tests/local_backend_fixture.py`, and
